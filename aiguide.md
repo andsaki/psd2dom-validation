@@ -17,16 +17,26 @@ npm run dev
 
 ## 2. テスト用PSDファイルの準備
 
-### samplesディレクトリに配置
+### ✅ ダウンロード済みのサンプルファイル
+
 ```bash
-# PSDファイルを samples/ ディレクトリにコピー
-cp /path/to/your/file.psd samples/sample1.psd
+samples/
+├── sample1.psd              (4.8MB) - 一般的なPSD
+├── sample_640x426.psd       (1.6MB) - 小サイズテスト用
+├── sample_1280x853.psd      (6.2MB) - 中サイズテスト用
+├── webtoon_example.psd      (286KB) - 400×800 縦長webtoon形式 ⭐
+├── webtoon_cjk.psd          (316KB) - 1890×1417 CJK文字含む
+└── webtoon_engineData.psd   (482KB) - 1890×1417 エンジンデータ
 ```
 
-推奨するテストパターン：
-- **sample1.psd**: シンプルなレイヤー構造（2-3レイヤー）
-- **sample2.psd**: 複雑なレイヤー構造（10+レイヤー、グループあり）
-- **sample3.psd**: エフェクトやマスクを含むデザイン
+**注目**: `webtoon_example.psd`は縦長フォーマットで、webtoon/漫画形式のテストに最適
+
+### 追加のテストファイルが必要な場合
+```bash
+# 無料サンプルPSDファイル
+# filesamples.com からダウンロード可能
+curl -L -o samples/custom.psd "https://filesamples.com/samples/image/psd/sample_640×426.psd"
+```
 
 ## 3. 機能テスト
 
@@ -166,14 +176,112 @@ npm install psd --save
 - psd.jsのバージョンを確認
 - 別のライブラリ（ag-psd）も検討
 
-## 10. 参考リンク
+## 10. PSDライブラリの比較
 
-- [psd.js GitHub](https://github.com/meltingice/psd.js)
-- [psd.js API Documentation](https://github.com/meltingice/psd.js/wiki)
+現在のプロジェクトでは**ag-psd**を使用していますが、他のライブラリとの比較：
+
+### ライブラリ比較表
+
+| 項目 | @webtoon/psd | ag-psd (現在使用中) | psd.js |
+|------|--------------|---------------------|---------|
+| **サイズ** | ~100 KiB | ~200 KiB | ~443 KiB |
+| **依存関係** | ゼロ | 少ない | 多い |
+| **速度** | 高速（WebAssembly使用） | 高速 | 中速 |
+| **npm週間DL数** | 2,506 | 10,139 | 3,278 |
+| **TypeScript** | ✅ ネイティブ | ✅ ネイティブ | ❌ |
+| **メンテナンス** | ✅ 活発（NAVER WEBTOON） | ✅ 活発 | ⚠️ 低頻度 |
+| **PSB対応** | ✅ | ✅ | ❌ |
+| **レイヤーエフェクト** | ⚠️ 部分的 | ✅ | ✅ |
+
+### 推奨ライブラリ
+
+**現在の選択（ag-psd）が最適な理由**：
+- ✅ 成熟したライブラリで安定性が高い
+- ✅ npm週間ダウンロード数が最も多く、コミュニティサポートが充実
+- ✅ レイヤーエフェクトの完全サポート
+- ✅ ドキュメントが充実
+
+**@webtoon/psdを検討すべき場合**：
+- 📦 バンドルサイズを最小化したい
+- ⚡ WebAssemblyによる高速処理が必要
+- 🎨 Webtoon形式の処理に特化したい
+
+### ベンチマークツール
+実際のPSDファイルでパフォーマンスを比較：
+https://webtoon.github.io/psd/benchmark/
+
+## 11. 次の実装候補: レイヤープレビュー機能
+
+### 実装方法の選択肢
+
+#### オプション1: レイヤーリストにサムネイル表示
+```javascript
+// レイヤーアイテムの横に小さいサムネイル画像を追加
+function displayLayerWithThumbnail(layer) {
+  // layer.canvas から小さいサムネイルを生成
+  const thumbnail = createThumbnail(layer.canvas, 64, 64);
+  // レイヤーリストの横に表示
+}
+```
+
+**メリット**:
+- レイヤー情報と画像が一緒に見える
+- 直感的なUI
+
+**デメリット**:
+- スペースが限られる
+- 多数のレイヤーで重くなる可能性
+
+#### オプション2: 別セクションでギャラリー表示
+```javascript
+// 新しいセクションを作成してグリッド表示
+function displayLayerGallery(layers) {
+  const gallery = document.createElement('div');
+  gallery.className = 'layer-gallery';
+  // グリッドレイアウトで各レイヤーのプレビューを表示
+}
+```
+
+**メリット**:
+- 画像を大きく表示できる
+- レイヤー比較がしやすい
+
+**デメリット**:
+- レイヤー詳細情報と離れる
+- スクロールが必要
+
+### 推奨実装順序
+1. まずオプション1（サムネイル）を実装
+2. 必要に応じてオプション2（ギャラリー）を追加
+3. 切り替え機能を提供
+
+## 12. 参考リンク
+
+### PSDライブラリ
+- [ag-psd GitHub](https://github.com/Agamnentzar/ag-psd) - 現在使用中
+- [@webtoon/psd GitHub](https://github.com/webtoon/psd) - 代替ライブラリ
+- [@webtoon/psd Benchmark](https://webtoon.github.io/psd/benchmark/) - パフォーマンス比較
+- [psd.js GitHub](https://github.com/meltingice/psd.js) - レガシーライブラリ
+
+### ツール・ドキュメント
 - [Vite Documentation](https://vitejs.dev/)
 - [Photoshop File Format Specification](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/)
+
+### サンプルファイル
+- [FileSamples.com PSD](https://filesamples.com/formats/psd)
+- [Free Comic Templates (Gumroad)](https://georgvw.gumroad.com/l/comic_template)
 
 ---
 
 **最終更新**: 2026-01-12
-**ステータス**: セットアップ完了 → テスト開始待ち
+**ステータス**: ✅ セットアップ完了 → ✅ サンプルPSD取得完了 → 次: レイヤープレビュー機能実装
+
+## クイックスタート
+
+```bash
+# 開発サーバー起動
+npm run dev
+
+# ブラウザで http://localhost:5173 を開く
+# サンプルボタンから webtoon_example.psd を読み込んでテスト
+```

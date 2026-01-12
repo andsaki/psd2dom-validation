@@ -21,7 +21,9 @@
       "WebFetch(domain:spirall.gumroad.com)",
       "WebFetch(domain:www.freepik.com)",
       "Bash(file:*)",
-      "WebFetch(domain:webtoon.github.io)"
+      "WebFetch(domain:webtoon.github.io)",
+      "Bash(git add:*)",
+      "Skill(commit)"
     ]
   }
 }

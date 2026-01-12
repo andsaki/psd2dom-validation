@@ -289,12 +289,14 @@ export function displayDomPreview(psd, container) {
         node.style.display = layer.hidden ? 'none' : 'block';
         node.title = `${layer.name || `Layer ${index + 1}`}`;
 
-        try {
-            const dataUrl = layer.canvas.toDataURL('image/png');
-            node.style.backgroundImage = `url(${dataUrl})`;
-        } catch (err) {
-            console.warn('Layer previewの生成に失敗しました', err);
+        const layerCanvas = document.createElement('canvas');
+        layerCanvas.width = layer.canvas.width;
+        layerCanvas.height = layer.canvas.height;
+        const ctx = layerCanvas.getContext('2d');
+        if (ctx) {
+            ctx.drawImage(layer.canvas, 0, 0);
         }
+        node.appendChild(layerCanvas);
 
         stage.appendChild(node);
     });
