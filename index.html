@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>psd.js Validation - PSD to DOM Converter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .upload-section {
+            text-align: center;
+            padding: 40px;
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            background: #f8f9ff;
+            margin-bottom: 40px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-section:hover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+        }
+
+        .upload-section.dragover {
+            background: #e8ebff;
+            border-color: #5a67d8;
+            transform: scale(1.02);
+        }
+
+        .upload-label {
+            display: block;
+            font-size: 1.2rem;
+            color: #667eea;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .upload-input {
+            display: none;
+        }
+
+        .upload-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 30px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+            font-weight: 600;
+        }
+
+        .upload-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .samples-section {
+            margin-bottom: 40px;
+        }
+
+        .samples-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        .sample-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .sample-button {
+            background: white;
+            border: 2px solid #667eea;
+            color: #667eea;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .sample-button:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .results-section {
+            display: none;
+        }
+
+        .results-section.active {
+            display: block;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .result-panel {
+            background: #f8f9ff;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-panel h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .psd-info {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .info-value {
+            color: #333;
+        }
+
+        .preview-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            overflow: auto;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .layers-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .layer-item {
+            padding: 12px;
+            margin: 8px 0;
+            background: #f8f9ff;
+            border-left: 4px solid #667eea;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        .layer-item:hover {
+            background: #f0f2ff;
+            transform: translateX(5px);
+        }
+
+        .layer-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .layer-details {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.2rem;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #c33;
+        }
+
+        /* レイヤーサムネイル */
+        .layer-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .layer-thumbnail-container {
+            flex-shrink: 0;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .layer-thumbnail {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .layer-info {
+            flex: 1;
+        }
+
+        /* コマ一覧グリッド */
+        .layer-grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+        }
+
+        .grid-item {
+            position: relative;
+            background: #f8f9ff;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .grid-item:hover {
+            transform: scale(1.2);
+            z-index: 10;
+            border-color: #667eea;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .grid-canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .grid-label {
+            padding: 10px;
+            background: rgba(102, 126, 234, 0.9);
+            color: white;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        /* モーダル */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        .modal-content {
+            position: relative;
+            max-width: 90vw;
+            max-height: 90vh;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            z-index: 1001;
+        }
+
+        .modal-close:hover {
+            background: #764ba2;
+            transform: rotate(90deg);
+        }
+
+        #modalCanvas {
+            max-width: 100%;
+            max-height: calc(90vh - 100px);
+            border-radius: 10px;
+        }
+
+        .modal-label {
+            margin-top: 15px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .layer-grid-container {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>psd.js Validation Tool</h1>
+            <p>PSDファイルをアップロードしてDOM構造を検証</p>
+        </header>
+
+        <div class="content">
+            <div class="upload-section" id="uploadSection">
+                <label class="upload-label">
+                    PSDファイルをドラッグ&ドロップ、またはクリックしてアップロード
+                </label>
+                <input type="file" id="fileInput" class="upload-input" accept=".psd">
+                <button class="upload-button" onclick="document.getElementById('fileInput').click()">
+                    ファイルを選択
+                </button>
+            </div>
+
+            <div class="samples-section">
+                <h2>サンプルファイル</h2>
+                <div class="sample-buttons" id="sampleButtons">
+                    <button class="sample-button" onclick="loadSample('sample1.psd')">Sample 1</button>
+                    <button class="sample-button" onclick="loadSample('sample2.psd')">Sample 2</button>
+                    <button class="sample-button" onclick="loadSample('sample3.psd')">Sample 3</button>
+                </div>
+            </div>
+
+            <div class="results-section" id="resultsSection">
+                <div class="results-grid">
+                    <div class="result-panel">
+                        <h3>PSD情報</h3>
+                        <div class="psd-info" id="psdInfo"></div>
+                    </div>
+
+                    <div class="result-panel">
+                        <h3>プレビュー</h3>
+                        <div class="preview-container" id="previewContainer"></div>
+                    </div>
+
+                    <div class="result-panel" style="grid-column: 1 / -1;">
+                        <h3>コマ一覧（Webtoon）</h3>
+                        <div class="layer-grid-container" id="layerGridContainer"></div>
+                    </div>
+
+                    <div class="result-panel" style="grid-column: 1 / -1;">
+                        <h3>レイヤー構造</h3>
+                        <div class="layers-container" id="layersContainer"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- モーダル -->
+            <div class="modal" id="imageModal">
+                <div class="modal-overlay"></div>
+                <div class="modal-content">
+                    <button class="modal-close" id="modalClose">&times;</button>
+                    <canvas id="modalCanvas"></canvas>
+                    <div class="modal-label" id="modalLabel"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>

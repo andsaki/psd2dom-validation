@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm uninstall:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "mcp__playwright__playwright_navigate",
+      "mcp__playwright__playwright_screenshot",
+      "mcp__playwright__playwright_console_logs",
+      "WebSearch",
+      "WebFetch(domain:toolsfairy.com)",
+      "WebFetch(domain:getsamplefiles.com)",
+      "Bash(curl:*)",
+      "mcp__playwright__playwright_click",
+      "mcp__playwright__playwright_hover",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.sample-videos.com)",
+      "WebFetch(domain:filesamples.com)",
+      "mcp__playwright__playwright_evaluate",
+      "WebFetch(domain:georgvw.gumroad.com)",
+      "WebFetch(domain:spirall.gumroad.com)",
+      "WebFetch(domain:www.freepik.com)",
+      "Bash(file:*)",
+      "WebFetch(domain:webtoon.github.io)"
+    ]
+  }
+}
