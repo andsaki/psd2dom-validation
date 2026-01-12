@@ -201,32 +201,48 @@ function getLayerType(layer) {
 /**
  * プレビュー画像を表示
  */
-export async function displayPreview(psd, container) {
+export async function displayPreview(previewPsd, container, fallbackPsd = null) {
     try {
-        // ag-psdではimageDataからcanvasを作成
-        if (psd.canvas) {
-            // すでにcanvasがある場合
-            container.innerHTML = '';
-            psd.canvas.className = 'preview-image';
-            container.appendChild(psd.canvas);
-        } else if (psd.imageData) {
-            // imageDataからcanvasを作成
-            const canvas = document.createElement('canvas');
-            canvas.width = psd.width;
-            canvas.height = psd.height;
-            canvas.className = 'preview-image';
+        const compositeBuffer = await previewPsd.composite();
+        const canvas = document.createElement('canvas');
+        canvas.width = previewPsd.width;
+        canvas.height = previewPsd.height;
+        canvas.className = 'preview-image';
 
-            const ctx = canvas.getContext('2d');
-            ctx.putImageData(psd.imageData, 0, 0);
+        const ctx = canvas.getContext('2d');
+        const imageData = new ImageData(compositeBuffer, previewPsd.width, previewPsd.height);
+        ctx.putImageData(imageData, 0, 0);
 
-            container.innerHTML = '';
-            container.appendChild(canvas);
-        } else {
-            container.innerHTML = '<p>プレビューを生成できませんでした</p>';
-        }
+        container.innerHTML = '';
+        container.appendChild(canvas);
     } catch (error) {
         console.error('Preview generation error:', error);
-        container.innerHTML = `<p class="error">プレビュー生成エラー: ${error.message}</p>`;
+        if (fallbackPsd) {
+            renderFallbackPreview(fallbackPsd, container);
+        } else {
+            container.innerHTML = `<p class="error">プレビュー生成エラー: ${error.message}</p>`;
+        }
+    }
+}
+
+function renderFallbackPreview(psd, container) {
+    if (psd.canvas) {
+        container.innerHTML = '';
+        psd.canvas.className = 'preview-image';
+        container.appendChild(psd.canvas);
+    } else if (psd.imageData) {
+        const canvas = document.createElement('canvas');
+        canvas.width = psd.width;
+        canvas.height = psd.height;
+        canvas.className = 'preview-image';
+
+        const ctx = canvas.getContext('2d');
+        ctx.putImageData(psd.imageData, 0, 0);
+
+        container.innerHTML = '';
+        container.appendChild(canvas);
+    } else {
+        container.innerHTML = '<p>プレビューを生成できませんでした</p>';
     }
 }
 

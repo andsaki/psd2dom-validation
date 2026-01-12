@@ -1,4 +1,5 @@
 import { readPsd } from 'ag-psd';
+import Psd from '@webtoon/psd';
 import { parsePSDFile, displayPSDInfo, displayLayers, displayPreview, displayLayerGrid } from './psdParser.js';
 
 // DOM要素の取得
@@ -58,6 +59,7 @@ async function handleFile(file) {
         // PSDファイルの読み込みと解析
         const arrayBuffer = await file.arrayBuffer();
         const psd = readPsd(arrayBuffer, { skipLayerImageData: false, skipCompositeImageData: false });
+        const previewPsd = Psd.parse(arrayBuffer);
 
         // グローバル変数に保存
         currentPsd = psd;
@@ -72,7 +74,7 @@ async function handleFile(file) {
         displayLayerGrid(psd, layerGridContainer);
 
         // プレビュー画像の表示
-        await displayPreview(psd, previewContainer);
+        await displayPreview(previewPsd, previewContainer, psd);
 
         // 結果セクションを表示
         resultsSection.classList.add('active');

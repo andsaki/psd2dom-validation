@@ -68,7 +68,8 @@ psd2dom-validation/
 
 ## 使用ライブラリ
 
-- [ag-psd](https://github.com/Agamnentzar/ag-psd) - PSDファイル解析ライブラリ（TypeScript製、高速）
+- [ag-psd](https://github.com/Agamnentzar/ag-psd) - 詳細メタデータやレイヤー構造の解析に使用
+- [@webtoon/psd](https://github.com/webtoon/psd) - WebAssemblyベースの高速コンポジットでプレビュー画像を生成
 - [Vite](https://vitejs.dev/) - 開発サーバーとビルドツール
 
 ## 検証項目
