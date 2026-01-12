@@ -1,41 +1,80 @@
-/**
- * PSDファイル解析ユーティリティ (ag-psd version)
- */
+import type { ImageResources, Layer, Psd as AgPsdDocument, PixelData } from 'ag-psd';
+import type WebtoonPsd from '@webtoon/psd';
+
+type LayerType = 'group' | 'text' | 'image' | 'normal';
+type LayerWithCanvas = Layer & { canvas: HTMLCanvasElement };
+type ResolutionInfo = ImageResources['resolutionInfo'];
+
+interface LayerGeometry {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+}
+
+interface ParsedLayerSummary {
+    id: number;
+    name?: string;
+    type: LayerType;
+    visible: boolean;
+    opacity?: number;
+    blendMode?: string;
+    bounds: {
+        width: number;
+        height: number;
+        left?: number;
+        top?: number;
+        right?: number;
+        bottom?: number;
+    };
+}
+
+interface ParsedPsdSummary {
+    document: {
+        name: string;
+        width: number;
+        height: number;
+        colorMode: string;
+        depth: number;
+        resolution?: ResolutionInfo;
+    };
+    layers: ParsedLayerSummary[];
+}
+
+const hasCanvas = (layer: Layer): layer is LayerWithCanvas => Boolean(layer.canvas);
+const isRenderableLayer = (layer: Layer): layer is LayerWithCanvas => Boolean(layer.canvas) && layer.hidden !== true;
 
 /**
  * PSD情報を表示
  */
-export function displayPSDInfo(psd, container) {
-    const info = {
+export function displayPSDInfo(psd: AgPsdDocument, container: HTMLElement): void {
+    const info: Record<string, string> = {
         'ファイル名': 'Untitled',
         '幅': `${psd.width}px`,
         '高さ': `${psd.height}px`,
         'カラーモード': getColorMode(psd.colorMode),
-        'ビット深度': `${psd.bitsPerChannel || 8} bit`,
-        'レイヤー数': countLayers(psd.children || []),
-        'ドキュメント解像度': `${psd.imageResources?.resolutionInfo?.horizontalRes || 72} DPI`
+        'ビット深度': `${psd.bitsPerChannel ?? 8} bit`,
+        'レイヤー数': `${countLayers(psd.children ?? [])}`,
+        'ドキュメント解像度': `${psd.imageResources?.resolutionInfo?.horizontalResolution ?? 72} DPI`
     };
 
-    let html = '';
-    for (const [label, value] of Object.entries(info)) {
-        html += `
+    const rows = Object.entries(info).map(([label, value]) => `
             <div class="info-row">
                 <span class="info-label">${label}:</span>
                 <span class="info-value">${value}</span>
             </div>
-        `;
-    }
+        `);
 
-    container.innerHTML = html;
+    container.innerHTML = rows.join('');
 }
 
 /**
  * レイヤー数をカウント（再帰的）
  */
-function countLayers(layers) {
+function countLayers(layers: Layer[] = []): number {
     let count = 0;
     for (const layer of layers) {
-        count++;
+        count += 1;
         if (layer.children) {
             count += countLayers(layer.children);
         }
@@ -46,10 +85,10 @@ function countLayers(layers) {
 /**
  * レイヤー構造を表示（サムネイル付き）
  */
-export function displayLayers(psd, container) {
-    const layers = getAllLayers(psd.children || []);
+export function displayLayers(psd: AgPsdDocument, container: HTMLElement): void {
+    const layers = getAllLayers(psd.children ?? []);
 
-    if (!layers || layers.length === 0) {
+    if (layers.length === 0) {
         container.innerHTML = '<p>レイヤーが見つかりません</p>';
         return;
     }
@@ -60,17 +99,21 @@ export function displayLayers(psd, container) {
         const name = layer.name || `Layer ${index + 1}`;
         const type = getLayerType(layer);
         const visible = layer.hidden !== true;
-        const opacity = layer.opacity !== undefined ? layer.opacity : 255;
+        const opacity = layer.opacity ?? 255;
         const blendMode = layer.blendMode || 'normal';
 
-        const width = layer.right && layer.left ? layer.right - layer.left : 0;
-        const height = layer.bottom && layer.top ? layer.bottom - layer.top : 0;
-        const left = layer.left || 0;
-        const top = layer.top || 0;
+        const width = typeof layer.right === 'number' && typeof layer.left === 'number'
+            ? layer.right - layer.left
+            : 0;
+        const height = typeof layer.bottom === 'number' && typeof layer.top === 'number'
+            ? layer.bottom - layer.top
+            : 0;
+        const left = layer.left ?? 0;
+        const top = layer.top ?? 0;
 
         const layerItem = document.createElement('div');
         layerItem.className = 'layer-item';
-        layerItem.dataset.layerIndex = index;
+        layerItem.dataset.layerIndex = index.toString();
 
         // サムネイル画像を生成
         const thumbnail = createLayerThumbnail(layer, 60);
@@ -92,7 +135,8 @@ export function displayLayers(psd, container) {
         `;
 
         if (thumbnail) {
-            layerItem.querySelector('.layer-thumbnail-container').appendChild(thumbnail);
+            const thumbnailContainer = layerItem.querySelector<HTMLDivElement>('.layer-thumbnail-container');
+            thumbnailContainer?.appendChild(thumbnail);
         }
 
         container.appendChild(layerItem);
@@ -102,7 +146,7 @@ export function displayLayers(psd, container) {
 /**
  * レイヤーのサムネイルを生成
  */
-function createLayerThumbnail(layer, maxSize = 60) {
+function createLayerThumbnail(layer: Layer, maxSize = 60): HTMLCanvasElement | null {
     if (!layer.canvas) return null;
 
     const canvas = document.createElement('canvas');
@@ -118,11 +162,9 @@ function createLayerThumbnail(layer, maxSize = 60) {
             height = (height * maxSize) / width;
             width = maxSize;
         }
-    } else {
-        if (height > maxSize) {
-            width = (width * maxSize) / height;
-            height = maxSize;
-        }
+    } else if (height > maxSize) {
+        width = (width * maxSize) / height;
+        height = maxSize;
     }
 
     canvas.width = width;
@@ -130,7 +172,9 @@ function createLayerThumbnail(layer, maxSize = 60) {
     canvas.className = 'layer-thumbnail';
 
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(layer.canvas, 0, 0, width, height);
+    if (ctx) {
+        ctx.drawImage(layer.canvas, 0, 0, width, height);
+    }
 
     return canvas;
 }
@@ -138,10 +182,10 @@ function createLayerThumbnail(layer, maxSize = 60) {
 /**
  * コマ一覧をグリッドで表示
  */
-export function displayLayerGrid(psd, container) {
-    const layers = getAllLayers(psd.children || []).filter(layer => layer.canvas);
+export function displayLayerGrid(psd: AgPsdDocument, container: HTMLElement): void {
+    const layers = getAllLayers(psd.children ?? []).filter(hasCanvas);
 
-    if (!layers || layers.length === 0) {
+    if (layers.length === 0) {
         container.innerHTML = '<p>画像レイヤーが見つかりません</p>';
         return;
     }
@@ -153,18 +197,17 @@ export function displayLayerGrid(psd, container) {
 
         const gridItem = document.createElement('div');
         gridItem.className = 'grid-item';
-        gridItem.dataset.layerIndex = index;
+        gridItem.dataset.layerIndex = index.toString();
 
-        if (layer.canvas) {
-            const canvas = layer.canvas.cloneNode(false);
-            canvas.width = layer.canvas.width;
-            canvas.height = layer.canvas.height;
-            const ctx = canvas.getContext('2d');
+        const canvas = layer.canvas.cloneNode(false) as HTMLCanvasElement;
+        canvas.width = layer.canvas.width;
+        canvas.height = layer.canvas.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
             ctx.drawImage(layer.canvas, 0, 0);
-            canvas.className = 'grid-canvas';
-
-            gridItem.appendChild(canvas);
         }
+        canvas.className = 'grid-canvas';
+        gridItem.appendChild(canvas);
 
         const labelDiv = document.createElement('div');
         labelDiv.className = 'grid-label';
@@ -178,7 +221,7 @@ export function displayLayerGrid(psd, container) {
 /**
  * すべてのレイヤーを再帰的に取得
  */
-function getAllLayers(layers, result = []) {
+function getAllLayers(layers: Layer[] = [], result: Layer[] = []): Layer[] {
     for (const layer of layers) {
         result.push(layer);
         if (layer.children) {
@@ -191,22 +234,22 @@ function getAllLayers(layers, result = []) {
 /**
  * レイヤータイプを判定
  */
-function getLayerType(layer) {
+function getLayerType(layer: Layer): LayerType {
     if (layer.children) return 'group';
     if (layer.text) return 'text';
     if (layer.canvas) return 'image';
     return 'normal';
 }
 
-function getLayerGeometry(layer) {
+function getLayerGeometry(layer: Layer): LayerGeometry {
     const left = typeof layer.left === 'number' ? layer.left : 0;
     const top = typeof layer.top === 'number' ? layer.top : 0;
     const width = typeof layer.right === 'number' && typeof layer.left === 'number'
         ? layer.right - layer.left
-        : (layer.canvas?.width || 0);
+        : layer.canvas?.width ?? 0;
     const height = typeof layer.bottom === 'number' && typeof layer.top === 'number'
         ? layer.bottom - layer.top
-        : (layer.canvas?.height || 0);
+        : layer.canvas?.height ?? 0;
 
     return {
         left,
@@ -219,7 +262,7 @@ function getLayerGeometry(layer) {
 /**
  * プレビュー画像を表示
  */
-export async function displayPreview(previewPsd, container, fallbackPsd = null) {
+export async function displayPreview(previewPsd: WebtoonPsd, container: HTMLElement, fallbackPsd: AgPsdDocument | null = null): Promise<void> {
     try {
         const compositeBuffer = await previewPsd.composite();
         const canvas = document.createElement('canvas');
@@ -228,7 +271,11 @@ export async function displayPreview(previewPsd, container, fallbackPsd = null) 
         canvas.className = 'preview-image';
 
         const ctx = canvas.getContext('2d');
-        const imageData = new ImageData(compositeBuffer, previewPsd.width, previewPsd.height);
+        if (!ctx) {
+            throw new Error('2D context is not available.');
+        }
+        const imageDataArray = cloneToImageDataArray(compositeBuffer);
+        const imageData = new ImageData(imageDataArray, previewPsd.width, previewPsd.height);
         ctx.putImageData(imageData, 0, 0);
 
         container.innerHTML = '';
@@ -238,7 +285,8 @@ export async function displayPreview(previewPsd, container, fallbackPsd = null) 
         if (fallbackPsd) {
             renderFallbackPreview(fallbackPsd, container);
         } else {
-            container.innerHTML = `<p class="error">プレビュー生成エラー: ${error.message}</p>`;
+            const message = error instanceof Error ? error.message : '不明なエラー';
+            container.innerHTML = `<p class="error">プレビュー生成エラー: ${message}</p>`;
         }
     }
 }
@@ -246,13 +294,15 @@ export async function displayPreview(previewPsd, container, fallbackPsd = null) 
 /**
  * DOMベースのプレビューを表示
  */
-export function displayDomPreview(psd, container) {
+export function displayDomPreview(psd: AgPsdDocument, container: HTMLElement): void {
     if (!psd?.width || !psd?.height) {
         container.innerHTML = '<p>ドキュメントサイズを取得できませんでした</p>';
         return;
     }
 
-    const layers = getAllLayers(psd.children || []).filter(layer => layer.canvas && layer.hidden !== true);
+    const allLayers = getAllLayers(psd.children ?? []);
+    const layers = allLayers.filter(isRenderableLayer);
+
     container.innerHTML = '';
 
     if (layers.length === 0) {
@@ -277,24 +327,39 @@ export function displayDomPreview(psd, container) {
 
     layers.forEach((layer, index) => {
         const geometry = getLayerGeometry(layer);
-        if (geometry.width === 0 || geometry.height === 0) return;
+
+        if (geometry.width === 0 || geometry.height === 0) {
+            return;
+        }
 
         const node = document.createElement('div');
         node.className = 'dom-layer-node';
         node.style.left = `${geometry.left}px`;
         node.style.top = `${geometry.top}px`;
-        node.style.width = `${geometry.width}px`;
-        node.style.height = `${geometry.height}px`;
-        node.style.opacity = layer.opacity !== undefined ? layer.opacity / 255 : 1;
+
+        // ag-psdのopacityは0-255の範囲。255が完全不透明、0が完全透明
+        // undefinedまたは255の場合は完全不透明として扱う
+        const opacityValue = layer.opacity === undefined || layer.opacity === 255 ? 1 : layer.opacity / 255;
+        node.style.opacity = `${opacityValue}`;
+        console.log(`Layer ${index} opacity: raw=${layer.opacity}, calculated=${opacityValue}`);
+
         node.style.display = layer.hidden ? 'none' : 'block';
         node.title = `${layer.name || `Layer ${index + 1}`}`;
 
         const layerCanvas = document.createElement('canvas');
         layerCanvas.width = layer.canvas.width;
         layerCanvas.height = layer.canvas.height;
+        layerCanvas.style.border = '1px solid red';
+        console.log(`Layer ${index} (${layer.name}): canvas ${layerCanvas.width}x${layerCanvas.height}, pos: (${geometry.left}, ${geometry.top})`);
+
         const ctx = layerCanvas.getContext('2d');
         if (ctx) {
-            ctx.drawImage(layer.canvas, 0, 0);
+            try {
+                ctx.drawImage(layer.canvas, 0, 0);
+                console.log(`Layer ${index}: drawn successfully`);
+            } catch (err) {
+                console.error(`Layer ${index} draw failed:`, err);
+            }
         }
         node.appendChild(layerCanvas);
 
@@ -311,32 +376,54 @@ export function displayDomPreview(psd, container) {
     container.appendChild(meta);
 }
 
-function renderFallbackPreview(psd, container) {
+function renderFallbackPreview(psd: AgPsdDocument, container: HTMLElement): void {
     if (psd.canvas) {
         container.innerHTML = '';
         psd.canvas.className = 'preview-image';
         container.appendChild(psd.canvas);
-    } else if (psd.imageData) {
-        const canvas = document.createElement('canvas');
-        canvas.width = psd.width;
-        canvas.height = psd.height;
-        canvas.className = 'preview-image';
+        return;
+    }
 
-        const ctx = canvas.getContext('2d');
-        ctx.putImageData(psd.imageData, 0, 0);
+    if (psd.imageData) {
+        const canvas = buildCanvasFromPixelData(psd.imageData);
+        canvas.className = 'preview-image';
 
         container.innerHTML = '';
         container.appendChild(canvas);
-    } else {
-        container.innerHTML = '<p>プレビューを生成できませんでした</p>';
+        return;
     }
+
+    container.innerHTML = '<p>プレビューを生成できませんでした</p>';
+}
+
+function buildCanvasFromPixelData(pixelData: PixelData): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    canvas.width = pixelData.width;
+    canvas.height = pixelData.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        throw new Error('2D context is not available for fallback preview.');
+    }
+
+    const imageDataArray = cloneToImageDataArray(pixelData.data);
+    const imageData = new ImageData(imageDataArray, pixelData.width, pixelData.height);
+    ctx.putImageData(imageData, 0, 0);
+
+    return canvas;
+}
+
+function cloneToImageDataArray(source: ArrayLike<number>): Uint8ClampedArray<ArrayBuffer> {
+    const buffer = new ArrayBuffer(source.length);
+    const target = new Uint8ClampedArray(buffer);
+    target.set(source);
+    return target;
 }
 
 /**
  * カラーモードを人間が読める形式に変換
  */
-function getColorMode(mode) {
-    const modes = {
+function getColorMode(mode?: number): string {
+    const modes: Record<number, string> = {
         0: 'Bitmap',
         1: 'Grayscale',
         2: 'Indexed',
@@ -346,14 +433,14 @@ function getColorMode(mode) {
         8: 'Duotone',
         9: 'Lab'
     };
-    return modes[mode] || 'Unknown';
+    return typeof mode === 'number' && modes[mode] ? modes[mode] : 'Unknown';
 }
 
 /**
  * PSDファイルを解析（詳細情報取得用）
  */
-export function parsePSDFile(psd) {
-    const layers = getAllLayers(psd.children || []);
+export function parsePSDFile(psd: AgPsdDocument): ParsedPsdSummary {
+    const layers = getAllLayers(psd.children ?? []);
 
     return {
         document: {
@@ -361,10 +448,10 @@ export function parsePSDFile(psd) {
             width: psd.width,
             height: psd.height,
             colorMode: getColorMode(psd.colorMode),
-            depth: psd.bitsPerChannel || 8,
+            depth: psd.bitsPerChannel ?? 8,
             resolution: psd.imageResources?.resolutionInfo
         },
-        layers: layers.map((layer, index) => ({
+        layers: layers.map((layer, index): ParsedLayerSummary => ({
             id: index,
             name: layer.name,
             type: getLayerType(layer),
@@ -372,8 +459,8 @@ export function parsePSDFile(psd) {
             opacity: layer.opacity,
             blendMode: layer.blendMode,
             bounds: {
-                width: layer.right && layer.left ? layer.right - layer.left : 0,
-                height: layer.bottom && layer.top ? layer.bottom - layer.top : 0,
+                width: typeof layer.right === 'number' && typeof layer.left === 'number' ? layer.right - layer.left : 0,
+                height: typeof layer.bottom === 'number' && typeof layer.top === 'number' ? layer.bottom - layer.top : 0,
                 left: layer.left,
                 top: layer.top,
                 right: layer.right,
