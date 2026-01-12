@@ -1,6 +1,6 @@
 import { readPsd } from 'ag-psd';
 import Psd from '@webtoon/psd';
-import { parsePSDFile, displayPSDInfo, displayLayers, displayPreview, displayLayerGrid } from './psdParser.js';
+import { parsePSDFile, displayPSDInfo, displayLayers, displayPreview, displayLayerGrid, displayDomPreview } from './psdParser.js';
 
 // DOM要素の取得
 const fileInput = document.getElementById('fileInput');
@@ -9,6 +9,7 @@ const resultsSection = document.getElementById('resultsSection');
 const psdInfo = document.getElementById('psdInfo');
 const layersContainer = document.getElementById('layersContainer');
 const previewContainer = document.getElementById('previewContainer');
+const domPreviewContainer = document.getElementById('domPreviewContainer');
 const layerGridContainer = document.getElementById('layerGridContainer');
 const imageModal = document.getElementById('imageModal');
 const modalClose = document.getElementById('modalClose');
@@ -75,6 +76,7 @@ async function handleFile(file) {
 
         // プレビュー画像の表示
         await displayPreview(previewPsd, previewContainer, psd);
+        displayDomPreview(psd, domPreviewContainer);
 
         // 結果セクションを表示
         resultsSection.classList.add('active');
@@ -115,6 +117,7 @@ function showLoading() {
     psdInfo.innerHTML = '<div class="loading">読み込み中...</div>';
     layersContainer.innerHTML = '<div class="loading">解析中...</div>';
     previewContainer.innerHTML = '<div class="loading">プレビュー生成中...</div>';
+    domPreviewContainer.innerHTML = '<div class="loading">DOM構築中...</div>';
 }
 
 // エラー表示
@@ -123,6 +126,7 @@ function showError(message) {
     psdInfo.innerHTML = `<div class="error">${message}</div>`;
     layersContainer.innerHTML = '';
     previewContainer.innerHTML = '';
+    domPreviewContainer.innerHTML = '';
 }
 
 // グリッドアイテムのクリックハンドラーを設定

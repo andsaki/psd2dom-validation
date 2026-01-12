@@ -198,6 +198,24 @@ function getLayerType(layer) {
     return 'normal';
 }
 
+function getLayerGeometry(layer) {
+    const left = typeof layer.left === 'number' ? layer.left : 0;
+    const top = typeof layer.top === 'number' ? layer.top : 0;
+    const width = typeof layer.right === 'number' && typeof layer.left === 'number'
+        ? layer.right - layer.left
+        : (layer.canvas?.width || 0);
+    const height = typeof layer.bottom === 'number' && typeof layer.top === 'number'
+        ? layer.bottom - layer.top
+        : (layer.canvas?.height || 0);
+
+    return {
+        left,
+        top,
+        width,
+        height
+    };
+}
+
 /**
  * プレビュー画像を表示
  */
@@ -223,6 +241,72 @@ export async function displayPreview(previewPsd, container, fallbackPsd = null) 
             container.innerHTML = `<p class="error">プレビュー生成エラー: ${error.message}</p>`;
         }
     }
+}
+
+/**
+ * DOMベースのプレビューを表示
+ */
+export function displayDomPreview(psd, container) {
+    if (!psd?.width || !psd?.height) {
+        container.innerHTML = '<p>ドキュメントサイズを取得できませんでした</p>';
+        return;
+    }
+
+    const layers = getAllLayers(psd.children || []).filter(layer => layer.canvas && layer.hidden !== true);
+    container.innerHTML = '';
+
+    if (layers.length === 0) {
+        container.innerHTML = '<p>DOMレンダリング可能なレイヤーが見つかりません</p>';
+        return;
+    }
+
+    const maxWidth = 700;
+    const maxHeight = 500;
+    const scale = Math.min(1, maxWidth / psd.width, maxHeight / psd.height);
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'dom-preview-wrapper';
+
+    const stage = document.createElement('div');
+    stage.className = 'dom-preview-stage';
+    stage.style.width = `${psd.width}px`;
+    stage.style.height = `${psd.height}px`;
+    if (scale < 1) {
+        stage.style.transform = `scale(${scale})`;
+    }
+
+    layers.forEach((layer, index) => {
+        const geometry = getLayerGeometry(layer);
+        if (geometry.width === 0 || geometry.height === 0) return;
+
+        const node = document.createElement('div');
+        node.className = 'dom-layer-node';
+        node.style.left = `${geometry.left}px`;
+        node.style.top = `${geometry.top}px`;
+        node.style.width = `${geometry.width}px`;
+        node.style.height = `${geometry.height}px`;
+        node.style.opacity = layer.opacity !== undefined ? layer.opacity / 255 : 1;
+        node.style.display = layer.hidden ? 'none' : 'block';
+        node.title = `${layer.name || `Layer ${index + 1}`}`;
+
+        try {
+            const dataUrl = layer.canvas.toDataURL('image/png');
+            node.style.backgroundImage = `url(${dataUrl})`;
+        } catch (err) {
+            console.warn('Layer previewの生成に失敗しました', err);
+        }
+
+        stage.appendChild(node);
+    });
+
+    wrapper.appendChild(stage);
+    container.appendChild(wrapper);
+
+    const meta = document.createElement('div');
+    meta.className = 'dom-preview-meta';
+    const scaleLabel = scale < 1 ? `縮尺: ${Math.round(scale * 100)}%` : '等倍表示';
+    meta.textContent = `DOM Layers: ${layers.length} / サイズ: ${psd.width}×${psd.height}px (${scaleLabel})`;
+    container.appendChild(meta);
 }
 
 function renderFallbackPreview(psd, container) {
